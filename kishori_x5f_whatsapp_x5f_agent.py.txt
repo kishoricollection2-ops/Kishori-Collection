@@ -1,0 +1,148 @@
+"""
+Kishori Collection - WhatsApp AI Agent
+Free deployment on Render.com - No Interakt needed
+"""
+from flask import Flask, request, jsonify
+import requests
+import os
+
+app = Flask(__name__)
+
+# ====== YAHAN APNA TOKEN DALO ======
+VERIFY_TOKEN = "kishori_saheli_123"
+# Jo token aapne Meta pe generate kiya tha
+ACCESS_TOKEN = os.environ.get("WHATSAPP_TOKEN", "YOUR_ACCESS_TOKEN_HERE")
+PHONE_NUMBER_ID = os.environ.get("PHONE_ID", "1456262570898256")
+
+# ====== AI Logic for Kishori Collection ======
+def get_reply(user_text):
+    text = user_text.lower()
+    
+    if any(w in text for w in ["red", "laal", "red saree"]):
+        return """Namaste! ❤️ Red ke liye best 3 options Kishori Collection pe:
+
+1. 🔴 Red Banarasi Jacquard - Rs 3499
+   - Zari border, perfect for wedding
+
+2. 🔴 Red Bandhani Saree - Rs 4299  
+   - Pure Jaipur Bandhani
+
+3. 🔴 Red Chiffon with Tassels - Rs 2999
+   - Lightweight, daily wear
+
+Konsi dekhni hai? Number bataiye (1,2,3)
+www.kishoricollection.in"""
+
+    elif any(w in text for w in ["saree", "saari", "sadi"]):
+        return """Kishori pe 200+ sarees hain! 🙏
+
+Bataiye:
+- Occasion kya hai? (Wedding / Daily / Festival / Office)
+- Budget kya hai? (Under 3000 / 5000)
+- Color pasand?
+
+Jaise: "Wedding ke liye red saree under 5000" """
+
+    elif any(w in text for w in ["suit", "salwar", "kurta"]):
+        return """Cotton Suits Rs 1999 se start! 👗
+
+Available:
+- Cotton Unstitched - Rs 1999
+- Designer Suit - Rs 3499
+- Festival Suit - Rs 4999
+
+Color bataiye? Blue, Pink, Onion Pink?
+
+www.kishoricollection.in"""
+
+    elif any(w in text for w in ["order", "track", "kaha hai"]):
+        return """Order track karne ke liye:
+Order ID bhejie jaise: KC12345
+
+Ya www.kishoricollection.in pe Track Order pe jaiye."""
+
+    elif any(w in text for w in ["hi", "hello", "namaste", "hey"]):
+        return """Namaste! 🙏 Main Kishori Saheli hu - Kishori Collection ki AI assistant.
+
+Main aapki madad kar sakti hu:
+1. Perfect Saree/Suit dhoondhne me
+2. Price & Fabric batane me
+3. Order track karne me
+
+Aapko kya chahiye? Saree, Suit ya Lehenga?"""
+
+    else:
+        return """Samajh gayi! 😊
+
+Kishori Collection - Jaipur Since 1984
+Aapko kya dikhau?
+- Wedding Sarees
+- Daily Cotton Suits
+- Lehenga
+- Sale Under 3000
+
+Bas type kijiye!"""
+
+@app.route("/")
+def home():
+    return "Kishori Collection WhatsApp Agent is Live! 🙏"
+
+@app.route("/webhook", methods=["GET"])
+def verify_webhook():
+    # Meta verification
+    mode = request.args.get("hub.mode")
+    token = request.args.get("hub.verify_token")
+    challenge = request.args.get("hub.challenge")
+    
+    if mode == "subscribe" and token == VERIFY_TOKEN:
+        print("WEBHOOK VERIFIED")
+        return challenge, 200
+    else:
+        return "Verification failed", 403
+
+@app.route("/webhook", methods=["POST"])
+def webhook():
+    data = request.get_json()
+    print("Incoming:", data)
+    
+    try:
+        if data and 'entry' in data:
+            for entry in data['entry']:
+                for change in entry.get('changes', []):
+                    value = change.get('value', {})
+                    messages = value.get('messages', [])
+                    
+                    for msg in messages:
+                        from_number = msg['from']
+                        if 'text' in msg:
+                            user_text = msg['text']['body']
+                            reply = get_reply(user_text)
+                            
+                            # Send reply via WhatsApp Cloud API
+                            send_whatsapp_message(from_number, reply)
+    except Exception as e:
+        print(f"Error: {e}")
+    
+    return "OK", 200
+
+def send_whatsapp_message(to, text):
+    url = f"https://graph.facebook.com/v19.0/{PHONE_NUMBER_ID}/messages"
+    headers = {
+        "Authorization": f"Bearer {ACCESS_TOKEN}",
+        "Content-Type": "application/json"
+    }
+    payload = {
+        "messaging_product": "whatsapp",
+        "to": to,
+        "type": "text",
+        "text": {"body": text}
+    }
+    try:
+        r = requests.post(url, json=payload, headers=headers)
+        print(f"Sent to {to}: {r.status_code} - {r.text}")
+    except Exception as e:
+        print(f"Send error: {e}")
+
+if __name__ == "__main__":
+    port = int(os.environ.get("PORT", 5000))
+    app.run(host="0.0.0.0", port=port)
